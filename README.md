@@ -43,6 +43,7 @@ churn-prediction/
 ├── app/ # Optional web app interface (Streamlit/FastAPI)
 ├── utils/ # Helper scripts and generators
 ├── churn_model.py # Main training script
+└── project_roadmap.md # Project roadmap
 └── README.md # Project overview
 
 ---
