@@ -17,7 +17,7 @@ This roadmap guides the end-to-end development of a customer churn prediction sy
 
 - Load data from `data/telco7k.csv`
 - Use DVC with 2 versions of data:
-  - One dataset simulates 1 million rows by duplicating for streaming and metrics comparison
+  - One dataset simulates 1 million rows by duplicating, adding noise and shuffling the rows for streaming and metrics comparison
     - I also want to run experiments and observe the effects of duplicate data on model performance
   - The other dataset has the original 7K rows.
 - Duplicate with noise for streaming simulation
