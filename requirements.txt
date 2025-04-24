@@ -11,3 +11,4 @@ sqlalchemy>=1.4
 psycopg2-binary>=2.9
 streamlit>=1.15
 imbalanced-learn>=0.10
+datasets>=2.0
