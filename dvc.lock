@@ -1,0 +1,35 @@
+schema: '2.0'
+stages:
+  preprocess_7k:
+    cmd: python utils/preprocess_data.py --input data/telco_7k.csv --output data/telco_cleaned_7k.csv
+    deps:
+    - path: data/telco_7k.csv
+      hash: md5
+      md5: 0f9de68e012bd3aed5fa7cdc9fc421af
+      size: 977501
+    - path: utils/preprocess_data.py
+      hash: md5
+      md5: 8306a063624e0f337cc4f735b6bacae0
+      size: 1580
+    outs:
+    - path: data/telco_cleaned_7k.csv
+      hash: md5
+      md5: 5bf89530534a346e4161ff0b45bebb9e
+      size: 1224044
+  simulate_1M:
+    cmd: python utils/simulate_large_dataset.py --input data/telco_cleaned_7k.csv
+      --output data/telco_cleaned_1M.csv --multiplier 150
+    deps:
+    - path: data/telco_cleaned_7k.csv
+      hash: md5
+      md5: 5bf89530534a346e4161ff0b45bebb9e
+      size: 1224044
+    - path: utils/simulate_large_dataset.py
+      hash: md5
+      md5: 954a7e8271010858069fab0d26748413
+      size: 1735
+    outs:
+    - path: data/telco_cleaned_1M.csv
+      hash: md5
+      md5: 32d868093d62f3bbcc5e83e9325c2d21
+      size: 196328893

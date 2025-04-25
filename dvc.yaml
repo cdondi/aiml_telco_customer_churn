@@ -1,0 +1,16 @@
+stages:
+  preprocess_7k:
+    cmd: python utils/preprocess_data.py --input data/telco_7k.csv --output data/telco_cleaned_7k.csv
+    deps:
+    - data/telco_7k.csv
+    - utils/preprocess_data.py
+    outs:
+    - data/telco_cleaned_7k.csv
+  simulate_1M:
+    cmd: python utils/simulate_large_dataset.py --input data/telco_cleaned_7k.csv
+      --output data/telco_cleaned_1M.csv --multiplier 150
+    deps:
+    - data/telco_cleaned_7k.csv
+    - utils/simulate_large_dataset.py
+    outs:
+    - data/telco_cleaned_1M.csv

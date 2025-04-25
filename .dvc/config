@@ -1,0 +1,4 @@
+[core]
+    remote = aiml_telco_remote
+['remote "aiml_telco_remote"']
+    url = s3://clived-dvc/aiml_telco_churn
