@@ -33,3 +33,24 @@ stages:
       hash: md5
       md5: 32d868093d62f3bbcc5e83e9325c2d21
       size: 196328893
+  train_model_7k:
+    cmd: python utils/train_model.py --input data/telco_cleaned_7k.csv --model_output
+      models/telco_churn_model_7k.pkl --metrics_output metrics/telco_metrics_7k.json
+    deps:
+    - path: data/telco_cleaned_7k.csv
+      hash: md5
+      md5: 5bf89530534a346e4161ff0b45bebb9e
+      size: 1224044
+    - path: utils/train_model.py
+      hash: md5
+      md5: f9abcf083b04a6a9580540441644be85
+      size: 2526
+    outs:
+    - path: metrics/telco_metrics_7k.json
+      hash: md5
+      md5: 4f62e788e2f1604f72366b8520ab0c65
+      size: 145
+    - path: models/telco_churn_model_7k.pkl
+      hash: md5
+      md5: 917f3c611548aade6976f6655e66ccfd
+      size: 1391

@@ -14,3 +14,12 @@ stages:
     - utils/simulate_large_dataset.py
     outs:
     - data/telco_cleaned_1M.csv
+  train_model_7k:
+    cmd: python utils/train_model.py --input data/telco_cleaned_7k.csv --model_output
+      models/telco_churn_model_7k.pkl --metrics_output metrics/telco_metrics_7k.json
+    deps:
+    - data/telco_cleaned_7k.csv
+    - utils/train_model.py
+    outs:
+    - metrics/telco_metrics_7k.json
+    - models/telco_churn_model_7k.pkl
