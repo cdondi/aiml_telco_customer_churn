@@ -35,7 +35,7 @@ def train_model(input_path, model_output_path, metrics_output_path):
     )
 
     # Train a simple Logistic Regression model
-    model = LogisticRegression(max_iter=1000)
+    model = LogisticRegression(max_iter=1000, class_weight="balanced")
     model.fit(X_train, y_train)
 
     # Predict on the test set
