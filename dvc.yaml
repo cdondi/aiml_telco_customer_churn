@@ -20,6 +20,7 @@ stages:
     deps:
     - data/telco_cleaned_7k.csv
     - utils/train_model.py
+    - params.yaml
     outs:
     - metrics/telco_metrics_7k.json
     - models/telco_churn_model_7k.pkl

@@ -11,9 +11,19 @@ import pandas as pd
 import argparse
 import joblib
 import json
+import yaml
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Load hyperparameters from params.yaml
+with open("params.yaml", "r") as file:
+    params = yaml.safe_load(file)
+
+log_reg_params = params["logistic_regression"]
+
+# Create model with loaded parameters
+model = LogisticRegression(**log_reg_params)
 
 
 def train_model(input_path, model_output_path, metrics_output_path):
