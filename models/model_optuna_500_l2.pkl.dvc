@@ -1,0 +1,5 @@
+outs:
+- md5: d2b9df1e9b4d348d8bc5ded04f49c3a8
+  size: 1391
+  hash: md5
+  path: model_optuna_500_l2.pkl

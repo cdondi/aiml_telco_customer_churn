@@ -1,1 +1,8 @@
 /telco_churn_model_7k.pkl
+/model_optuna_1000_l1.pkl
+/model_optuna_1000_l2.pkl
+/model_optuna_2000_l2.pkl
+/model_optuna_2000_None.pkl
+/model_optuna_500_l1.pkl
+/model_optuna_500_l2.pkl
+/model_optuna_500_None.pkl

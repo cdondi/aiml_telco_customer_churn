@@ -1,0 +1,5 @@
+outs:
+- md5: c936e1c298b77e6a778257caf366090f
+  size: 1391
+  hash: md5
+  path: model_optuna_2000_l2.pkl
