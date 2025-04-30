@@ -16,3 +16,4 @@ dvc[s3]
 joblib
 mlflow
 argparse
+optuna
