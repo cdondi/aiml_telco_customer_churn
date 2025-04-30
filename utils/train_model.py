@@ -1,32 +1,36 @@
 """
-•	Load cleaned_7k.csv (or cleaned_1M.csv)
-•	Train a baseline ML model (e.g., Logistic Regression or Random Forest)
-•	Save the trained model to models/ folder as churn_model.pkl
-•	Optionally output a metrics.json file with evaluation metrics
-To run this script from the command line:
-    python utils/train_model.py --input data/telco_cleaned_7k.csv --model_output models/telco_churn_model_7k.pkl --metrics_output metrics/telco_metrics_7k.json
+Train a churn prediction model using Logistic Regression.
+
+- Load cleaned_7k.csv (or cleaned_1M.csv)
+- Train a Logistic Regression model
+- Save model to models/ as telco_churn_model_7k.pkl
+- Save metrics (accuracy, precision, recall, f1) to metrics/telco_metrics_7k.json
+- Log all parameters, metrics, and model using MLflow
+
+Usage:
+    python utils/train_model.py \
+        --input data/telco_cleaned_7k.csv \
+        --model_output models/telco_churn_model_7k.pkl \
+        --metrics_output metrics/telco_metrics_7k.json
 """
 
-import pandas as pd
 import argparse
-import joblib
 import json
+import joblib
 import yaml
+import pandas as pd
+import mlflow
+import mlflow.sklearn
+import logging
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-# Load hyperparameters from params.yaml
-with open("params.yaml", "r") as file:
-    params = yaml.safe_load(file)
-
-log_reg_params = params["logistic_regression"]
-
-# Create model with loaded parameters
-model = LogisticRegression(**log_reg_params)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
-def train_model(input_path, model_output_path, metrics_output_path):
+def train_model(input_path, model_output_path, metrics_output_path, logreg_params):
     # Load the preprocessed dataset
     df = pd.read_csv(input_path)
 
@@ -37,49 +41,98 @@ def train_model(input_path, model_output_path, metrics_output_path):
     if "customerID" in X.columns:
         X = X.drop(columns=["customerID"])
 
+    X = X.astype({col: "float64" for col in X.select_dtypes(include=["int"]).columns})
+
     y = df["Churn"].map({"Yes": 1, "No": 0})
 
     # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     # Train a simple Logistic Regression model
-    model = LogisticRegression(max_iter=1000, class_weight="balanced")
+    model = LogisticRegression(**logreg_params)
     model.fit(X_train, y_train)
 
     # Predict on the test set
     y_pred = model.predict(X_test)
 
-    # Compute evaluation metrics
-    metrics = {
-        "accuracy": accuracy_score(y_test, y_pred),
-        "precision": precision_score(y_test, y_pred),
-        "recall": recall_score(y_test, y_pred),
-        "f1_score": f1_score(y_test, y_pred),
-    }
+    # Evaluate
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
 
     # Save model
     joblib.dump(model, model_output_path)
 
     # Save metrics
+    metrics = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1,
+    }
+
+    # Save metrics
     with open(metrics_output_path, "w") as f:
         json.dump(metrics, f, indent=4)
 
-    print(f"Model saved to {model_output_path}")
-    print(f"Metrics saved to {metrics_output_path}")
+    logger.info("Model saved to %s", model_output_path)
+    logger.info("Metrics saved to %s", metrics_output_path)
+
+    return model, metrics, X_test
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a churn prediction model")
     parser.add_argument("--input", required=True, help="Path to input cleaned CSV")
-    parser.add_argument(
-        "--model_output", required=True, help="Path to save trained model"
-    )
-    parser.add_argument(
-        "--metrics_output", required=True, help="Path to save evaluation metrics JSON"
-    )
+    parser.add_argument("--model_output", required=True, help="Path to save trained model")
+    # fmt: off
+    parser.add_argument("--metrics_output", required=True, help="Path to save evaluation metrics JSON")
+    # fmt: on
+    parser.add_argument("--max_iter", type=int, default=1000)
+    parser.add_argument("--penalty", type=str, default="l2")
 
     args = parser.parse_args()
 
-    train_model(args.input, args.model_output, args.metrics_output)
+    # Convert string "None" to actual None
+    penalty = None if args.penalty.lower() == "none" else args.penalty
+
+    logreg_params = {
+        "max_iter": args.max_iter,
+        "penalty": penalty,
+        "solver": "lbfgs",  # You can expand later
+        "class_weight": "balanced",
+    }
+
+    # Group all experiments under one project
+    mlflow.set_experiment("telco-customer-churn")
+
+    # Start MLflow run
+    mlflow.start_run()
+
+    try:
+        # Log parameters
+        for k, v in logreg_params.items():
+            mlflow.log_param(k, v)
+
+        # Train the model
+        model, metrics, X_test = train_model(args.input, args.model_output, args.metrics_output, logreg_params)
+
+        # Log metrics
+        for k, v in metrics.items():
+            mlflow.log_metric(k, v)
+
+        # Log model with input_example and inferred signature
+        input_example = X_test.iloc[:1]
+        signature = mlflow.models.infer_signature(X_test, model.predict(X_test))
+
+        # Log model
+        mlflow.sklearn.log_model(model, artifact_path="model", input_example=input_example, signature=signature)
+
+        mlflow.set_tag("status", "success")
+    except Exception as e:
+        mlflow.set_tag("status", "failed")
+        mlflow.log_param("error_message", str(e))
+        raise
+    finally:
+        mlflow.end_run()

@@ -172,3 +172,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# AIML artifacts
+.mlruns/
+mlruns/
+models/
+.dvc/cache
+.DS_Store
