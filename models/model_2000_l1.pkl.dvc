@@ -1,0 +1,5 @@
+outs:
+- md5: 19c5b10a517e12a5a293403b2e09526d
+  size: 1403
+  hash: md5
+  path: model_2000_l1.pkl
