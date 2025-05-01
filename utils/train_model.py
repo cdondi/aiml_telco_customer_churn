@@ -26,12 +26,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from imblearn.over_sampling import SMOTE
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def train_model(input_path, model_output_path, metrics_output_path, hyper_params, model_type="logistic"):
+def train_model(input_path, model_output_path, metrics_output_path, hyper_params, model_type="logistic", use_resampling=False):
     # Load the preprocessed dataset
     df = pd.read_csv(input_path)
 
@@ -48,6 +49,10 @@ def train_model(input_path, model_output_path, metrics_output_path, hyper_params
 
     # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+    if use_resampling:
+        smote = SMOTE(random_state=42)
+        X_train, y_train = smote.fit_resample(X_train, y_train)
 
     # Train a simple Logistic Regression model
     if model_type == "logistic":

@@ -1,0 +1,6 @@
+outs:
+- md5: f64e5bedd2e7695a86edeeed1a2b77b4.dir
+  size: 1737
+  nfiles: 12
+  hash: md5
+  path: resampled

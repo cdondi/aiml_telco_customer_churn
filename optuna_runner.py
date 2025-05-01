@@ -7,30 +7,39 @@ import os
 
 mlflow.set_tracking_uri("http://localhost:5000")
 model_type = "random_forest"  # or "logistic"
+# model_type = "logistic"
 
 
-def get_output_paths(model_type: str, trial_number: int):
-    model_dir = os.path.join("models", model_type)
-    metrics_dir = os.path.join("metrics", model_type)
+def get_output_paths(model_type: str, trial_number: int, use_resampling=False):
+    base_folder = "resampled" if use_resampling else ""
+    model_dir = os.path.join("models", base_folder)
+    metrics_dir = os.path.join("metrics", base_folder)
     os.makedirs(model_dir, exist_ok=True)
     os.makedirs(metrics_dir, exist_ok=True)
 
-    model_output_path = os.path.join(model_dir, f"model_optuna_{trial_number}.pkl")
-    metrics_output_path = os.path.join(metrics_dir, f"metrics_optuna_{trial_number}.json")
-    return model_output_path, metrics_output_path
+    model_path = os.path.join(model_dir, f"model_optuna_{model_type}_{trial_number}.pkl")
+    metrics_path = os.path.join(metrics_dir, f"metrics_optuna_{model_type}_{trial_number}.json")
+    return model_path, metrics_path
 
 
 def objective(trial):
+    use_resampling = True  # ← toggle this ON for SMOTE, OFF for standard runs
+
     # Define hyperparameters to search
     max_iter = trial.suggest_categorical("max_iter", [500, 1000, 2000])
     penalty = trial.suggest_categorical("penalty", ["l1", "l2", None])
     solver = "liblinear" if penalty == "l1" else "lbfgs"
 
-    # Group all experiments under one project
-    mlflow.set_experiment("telco-customer-churn-optuna")
+    if use_resampling == True:
+        append_exp_group = "resampling"
+    else:
+        append_exp_group = "regular"
 
     # Prepare model parameters
     if model_type == "logistic":
+        # Group all experiments under one project
+        mlflow.set_experiment(f"churn-logistic-optuna-{append_exp_group}")
+
         mlflow.set_experiment("churn-optuna-logreg")
         max_iter = trial.suggest_categorical("max_iter", [500, 1000, 2000])
         penalty = trial.suggest_categorical("penalty", ["l1", "l2", None])
@@ -44,7 +53,9 @@ def objective(trial):
         }
 
     elif model_type == "random_forest":
-        mlflow.set_experiment("churn-optuna-random-forest")
+        # Group all experiments under one project
+        mlflow.set_experiment(f"churn-random-forest-optuna-{append_exp_group}")
+
         n_estimators = trial.suggest_int("n_estimators", 100, 300, step=50)
         max_depth = trial.suggest_categorical("max_depth", [None, 10, 20, 30])
         min_samples_split = trial.suggest_int("min_samples_split", 2, 10)
@@ -61,13 +72,17 @@ def objective(trial):
         raise ValueError(f"Unsupported model type: {model_type}")
 
     mlflow.log_param("model_type", model_type)
-    model_output_path, metrics_output_path = get_output_paths(model_type, trial.number)
+    model_output_path, metrics_output_path = get_output_paths(model_type, trial.number, use_resampling)
 
     if mlflow.active_run():
         mlflow.end_run()
 
     # Start MLflow run
     mlflow.start_run()
+
+    # Tag the run for clarity
+    mlflow.set_tag("resampled", str(use_resampling))
+
     try:
         # Log hyperparameters
         for k, v in hyper_params.items():
@@ -76,8 +91,8 @@ def objective(trial):
         # Train model and evaluate
         model, metrics, X_test = train_model(
             input_path="data/telco_cleaned_7k.csv",
-            model_output_path=f"models/model_optuna_{max_iter}_{penalty}.pkl",
-            metrics_output_path=f"metrics/metrics_optuna_{max_iter}_{penalty}.json",
+            model_output_path=model_output_path,
+            metrics_output_path=metrics_output_path,
             hyper_params=hyper_params,
             model_type=model_type,
         )
