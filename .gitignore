@@ -174,9 +174,29 @@ cython_debug/
 .pypirc
 
 
-# AIML artifacts
-.mlruns/
-mlruns/
-.dvc/cache
-.DS_Store
+# Ignore actual model binaries, keep .dvc files
+models/**/*.pkl
+!models/**/*.pkl.dvc
+
+# Ignore any temporary files or checkpoints (optional)
+models/**/__pycache__/
+models/**/*.tmp
+models/**/*.log
+
+# Ignore metrics files if you don’t want to track raw outputs
+# (Optional — but keep JSON metrics tracked if useful in Git)
+# metrics/**/*.json
+
+# Ignore DVC cache (auto-managed)
+.dvc/cache/
+
+# Ignore MLflow artifacts if you're not tracking them via DVC
 mlartifacts/
+mlruns/
+.mlruns/
+
+# Ignore virtual environments and OS clutter
+.env
+.venv
+__pycache__/
+.DS_Store

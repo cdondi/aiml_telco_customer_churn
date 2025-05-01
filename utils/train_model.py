@@ -22,6 +22,7 @@ import pandas as pd
 import mlflow
 import mlflow.sklearn
 import logging
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -30,7 +31,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def train_model(input_path, model_output_path, metrics_output_path, logreg_params):
+def train_model(input_path, model_output_path, metrics_output_path, hyper_params, model_type="logistic"):
     # Load the preprocessed dataset
     df = pd.read_csv(input_path)
 
@@ -49,7 +50,13 @@ def train_model(input_path, model_output_path, metrics_output_path, logreg_param
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     # Train a simple Logistic Regression model
-    model = LogisticRegression(**logreg_params)
+    if model_type == "logistic":
+        model = LogisticRegression(**hyper_params)
+    elif model_type == "random_forest":
+        model = RandomForestClassifier(**hyper_params)
+    else:
+        raise ValueError(f"Unsupported model_type: {model_type}")
+
     model.fit(X_train, y_train)
 
     # Predict on the test set
@@ -97,7 +104,7 @@ if __name__ == "__main__":
     # Convert string "None" to actual None
     penalty = None if args.penalty.lower() == "none" else args.penalty
 
-    logreg_params = {
+    hyper_params = {
         "max_iter": args.max_iter,
         "penalty": penalty,
         "solver": "lbfgs",  # You can expand later
@@ -107,16 +114,16 @@ if __name__ == "__main__":
     # Group all experiments under one project
     mlflow.set_experiment("telco-customer-churn")
 
-    # Start MLflow run
-    mlflow.start_run()
+    # # Start MLflow run
+    # mlflow.start_run()
 
     try:
         # Log parameters
-        for k, v in logreg_params.items():
+        for k, v in hyper_params.items():
             mlflow.log_param(k, v)
 
         # Train the model
-        model, metrics, X_test = train_model(args.input, args.model_output, args.metrics_output, logreg_params)
+        model, metrics, X_test = train_model(args.input, args.model_output, args.metrics_output, hyper_params)
 
         # Log metrics
         for k, v in metrics.items():

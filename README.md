@@ -110,6 +110,23 @@ joblib.dump(model, 'models/churn_model.pkl')
 model = joblib.load('models/churn_model.pkl')
 ```
 
+## Current Pipeline Design Summary
+- train_model.py
+  - Core logic (data -> model + metrics)
+  - Tools used - Python, scikit-learn
+- optuna_runner.py
+  - Experiment orchestration + hyperopt
+  - Tools used - Optuna, MLflow
+- DVC
+  - Dataset and model versioning
+  - Tools used - DVC, S3
+- MLflow
+  - Experiment tracking, metrics, models
+  - - Tools used - MLflow UI + logs
+- Git
+  - Code versionong
+
+
 📡 Future Enhancements
 • Add a real-time inference API using FastAPI
 • Automate model training with MLflow or DVC pipelines
