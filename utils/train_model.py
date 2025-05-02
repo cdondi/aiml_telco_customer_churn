@@ -27,6 +27,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from imblearn.over_sampling import SMOTE
+from xgboost import XGBClassifier
+from collections import Counter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -59,6 +61,13 @@ def train_model(input_path, model_output_path, metrics_output_path, hyper_params
         model = LogisticRegression(**hyper_params)
     elif model_type == "random_forest":
         model = RandomForestClassifier(**hyper_params)
+    elif model_type == "xgboost":
+        # Compute class imbalance for XGBoost
+        counter = Counter(y)
+        neg, pos = counter[0], counter[1]
+        hyper_params["scale_pos_weight"] = neg / pos
+
+        model = XGBClassifier(**hyper_params)
     else:
         raise ValueError(f"Unsupported model_type: {model_type}")
 

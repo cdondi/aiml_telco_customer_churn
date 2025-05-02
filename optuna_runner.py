@@ -2,12 +2,14 @@ import optuna
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-from utils.train_model import train_model
 import os
+from utils.train_model import train_model
+from xgboost import XGBClassifier
+
 
 mlflow.set_tracking_uri("http://localhost:5000")
-model_type = "random_forest"  # or "logistic"
-# model_type = "logistic"
+model_type = "random_forest"  # or "logistic" or "xgboost"
+model_type = "xgboost"
 
 
 def get_output_paths(model_type: str, trial_number: int, use_resampling=False):
@@ -67,6 +69,33 @@ def objective(trial):
             "class_weight": "balanced",
             "random_state": 42,
         }
+
+    elif model_type == "xgboost":
+        # Group all experiments under one project
+        mlflow.set_experiment(f"churn-xgboost-optuna-{append_exp_group}")
+
+        n_estimators = trial.suggest_categorical("n_estimators", [100, 200, 300])
+        max_depth = trial.suggest_categorical("max_depth", [3, 5, 10, 15])
+        learning_rate = trial.suggest_float("learning_rate", 0.01, 0.3, log=True)
+        subsample = trial.suggest_float("subsample", 0.5, 1.0)
+        colsample_bytree = trial.suggest_float("colsample_bytree", 0.5, 1.0)
+
+        hyper_params = {
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "learning_rate": learning_rate,
+            "subsample": subsample,
+            "colsample_bytree": colsample_bytree,
+            "objective": "binary:logistic",
+            "use_label_encoder": False,
+            "eval_metric": "logloss",
+            "random_state": 42,
+        }
+
+        for k, v in hyper_params.items():
+            mlflow.log_param(k, v)
+
+        model = XGBClassifier(**hyper_params)
 
     else:
         raise ValueError(f"Unsupported model type: {model_type}")

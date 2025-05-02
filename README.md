@@ -133,5 +133,22 @@ model = joblib.load('models/churn_model.pkl')
 • Integrate with business dashboards
 • Incorporate time-series forecasting for churn timing
 
+### Model Training Updates
+After evaluating three algorithms — Logistic Regression, Random Forest, and XGBoost — across precision, recall, and F1-score (with class imbalance addressed via resampling), XGBoost emerged as the preferred model. It demonstrated the best balance of precision (~0.50), recall (~0.74), and F1-score (~0.60), making it more suitable for real-world deployment where both accurate churn detection and cost-efficiency matter. While Logistic Regression achieved slightly higher recall, it did so at the cost of precision. Random Forest underperformed in both metrics.
+
+Next steps will focus on optimizing XGBoost via threshold tuning to improve precision without retraining, followed by optional feature engineering or alternate imbalance strategies like scale_pos_weight. All models were tracked using MLflow and versioned with DVC for full reproducibility.
+
+### Model Performance Comparison (With Resampling)
+
+| Model               | Accuracy | Precision | Recall | F1-Score | Notes                                 |
+|---------------------|----------|-----------|--------|----------|---------------------------------------|
+| Logistic Regression | ~0.725   | ~0.489    | **~0.789** | **~0.604** | Highest recall, lower precision |
+| Random Forest       | ~0.754   | ~0.534    | ~0.572 | ~0.552   | Lower recall and F1                   |
+| XGBoost             | ~0.737   | **~0.503** | ~0.743 | **~0.602** | Best balance of all metrics        |
+
+
+# More Information
+For more details on EDA and model training, Please take a look at project_roadmap.md
+
 Built by Clive Dondi, AI/ML Engineer & Software Developer
 Contact: clivedondi@hotmail.com

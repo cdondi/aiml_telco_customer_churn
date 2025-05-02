@@ -18,3 +18,4 @@ mlflow
 argparse
 optuna
 imbalanced-learn
+xgboost>=1.7.0
