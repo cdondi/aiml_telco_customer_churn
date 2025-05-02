@@ -2,14 +2,14 @@
 
 This project is an end-to-end machine learning system to predict customer churn for a subscription-based business. The goal is to identify users who are likely to cancel their service soon so that retention teams can take proactive action.
 
-## To Get Started
+## Getting Started
 
-1. Clone this repo or create it locally.
-2. Place your raw dataset in the `data/` folder.
-3. Start exploring in `notebooks/`.
-4. Build your model in `churn_model.py`.
-
-Happy modeling!
+1. Clone this repository.
+2. Place the raw dataset in the `data/` folder.
+3. Run the preprocessing and dataset simulation scripts:
+    - `python utils/preprocess_data.py --input data/telco_7k.csv --output data/telco_cleaned_7k.csv`
+    - `python utils/simulate_large_dataset.py --input data/telco_cleaned_7k.csv --output data/telco_cleaned_1M.csv --multiplier 150`
+4. Use `train_model.py` for standalone training and `optuna_runner.py` for automated hyperparameter tuning.
 
 ---
 
@@ -21,124 +21,103 @@ Churn is a critical metric for any recurring revenue business. This project uses
 
 ## Dataset
 
-- **Source:** [Telco Customer Churn dataset on Kaggle](https://www.kaggle.com/blastchar/telco-customer-churn)
-- **Fields include:**
-  - Demographic info (gender, age)
-  - Account tenure
-  - Payment method
-  - Contract type
-  - Monthly charges, total charges
-  - Service usage (internet, phone, streaming)
-  - Churn flag
+- **Source:** IBM Telco Churn Dataset (Wide Format from Hugging Face)
+- **Features include:**
+  - Demographics (gender, seniority)
+  - Contract and payment type
+  - Service features (Streaming, Internet, Phone)
+  - Tenure, Monthly Charges, Total Charges
+  - Churn Label
 
 ---
 
 ## Project Structure
 
+```
 churn-prediction/
-├── data/ # Raw and processed data
-├── notebooks/ # Jupyter notebooks for EDA and modeling
-├── models/ # Trained model artifacts (.pkl)
-├── sql/ # SQL queries for data extraction and transformation
-├── app/ # Optional web app interface (Streamlit/FastAPI)
-├── utils/ # Helper scripts and generators
-├── churn_model.py # Main training script
-└── project_roadmap.md # Project roadmap
-└── README.md # Project overview
+├── data/                # Raw, cleaned, and simulated data
+├── notebooks/           # Jupyter notebooks for EDA and visualization
+├── models/              # Trained model files (.pkl)
+├── metrics/             # Model evaluation outputs (JSON)
+├── utils/               # Scripts (training, preprocessing, simulation)
+├── mlruns/              # MLflow tracking logs
+├── optuna_runner.py     # Hyperparameter tuning entry point
+├── train_model.py       # Train a model manually with arguments
+├── dvc.yaml             # DVC pipeline definition
+├── params.yaml          # Default parameter file
+├── README.md
+```
 
 ---
 
 ## Features Used
 
-- Days since last login
-- Monthly average spend
-- % drop in usage
-- # of support tickets
-- Contract type, tenure
-- Categorical encodings (one-hot, label)
-- Scaled numerical features
+- Tenure buckets and binary flags
+- One-hot encoding for categorical features
+- Feature interactions (tenure/charges)
+- Resampling for class imbalance
+- Threshold tuning (in progress)
 
 ---
 
-## Models Used
+## Models Evaluated
 
 - Logistic Regression
-- Random Forest Classifier
-- XGBoost Classifier
+- Random Forest
+- XGBoost
 
 ---
 
 ## Evaluation Metrics
 
 - Accuracy
-- Precision / Recall
+- Precision
+- Recall
 - F1 Score
-- ROC-AUC
 
-Special focus is given to **recall** and **F1-score**, due to the imbalanced nature of churn prediction.
-
----
-
-## Tools & Tech
-
-- **Python** (Pandas, NumPy, Scikit-learn, XGBoost)
-- **SQL** (for preprocessing and joining multi-table data)
-- **Matplotlib / Seaborn** (for data visualization)
-- **Joblib** (for saving models)
-- **Streamlit** _(optional)_ for deployment
-- **DVC** _(optional)_ for versioning data & models
+Primary focus is on **recall** and **F1-score** due to class imbalance and business priority to reduce false negatives.
 
 ---
 
-## Handling Class Imbalance
+## Tools Used
 
-- Applied `class_weight='balanced'`
-- Experimented with `SMOTE` and `undersampling`
-- Evaluated metrics beyond accuracy
+- Python (Pandas, Scikit-learn, XGBoost)
+- MLflow (Experiment tracking)
+- Optuna (Hyperparameter tuning)
+- DVC + S3 (Data and model versioning)
+- Matplotlib/Seaborn (Visualization)
+- Joblib (Model serialization)
+- Git (Code version control)
 
 ---
 
-## Model Saving & Loading
+## Class Imbalance Handling
 
-```python
-import joblib
+- `class_weight="balanced"` for scikit-learn models
+- Resampling (SMOTE + RandomUnderSampler)
+- Will explore `scale_pos_weight` in XGBoost
+- Threshold tuning planned to improve precision
 
-# Save
-joblib.dump(model, 'models/churn_model.pkl')
+---
 
-# Load
-model = joblib.load('models/churn_model.pkl')
-```
+## Model Training Summary
 
-## Current Pipeline Design Summary
-- train_model.py
-  - Core logic (data -> model + metrics)
-  - Tools used - Python, scikit-learn
-- optuna_runner.py
-  - Experiment orchestration + hyperopt
-  - Tools used - Optuna, MLflow
-- DVC
-  - Dataset and model versioning
-  - Tools used - DVC, S3
-- MLflow
-  - Experiment tracking, metrics, models
-  - - Tools used - MLflow UI + logs
-- Git
-  - Code versionong
+- `train_model.py`: Standard model training (Logistic, Random Forest, XGBoost)
+- `optuna_runner.py`: Modular hyperparameter tuning with Optuna + MLflow
+- MLflow logs all hyperparams, metrics, and artifacts
+- Models are stored in `models/`, metrics in `metrics/`
 
+---
 
-📡 Future Enhancements
-• Add a real-time inference API using FastAPI
-• Automate model training with MLflow or DVC pipelines
-• Integrate with business dashboards
-• Incorporate time-series forecasting for churn timing
+## Model Selection Rationale
 
-### Model Training Updates
-After evaluating three algorithms — Logistic Regression, Random Forest, and XGBoost — across precision, recall, and F1-score (with class imbalance addressed via resampling), XGBoost emerged as the preferred model. It demonstrated the best balance of precision (~0.50), recall (~0.74), and F1-score (~0.60), making it more suitable for real-world deployment where both accurate churn detection and cost-efficiency matter. While Logistic Regression achieved slightly higher recall, it did so at the cost of precision. Random Forest underperformed in both metrics.
+After evaluating three algorithms — Logistic Regression, Random Forest, and XGBoost — across precision, recall, and F1-score (with class imbalance addressed via resampling), **XGBoost emerged as the preferred model**. It demonstrated the best balance of precision (~0.50), recall (~0.74), and F1-score (~0.60), making it more suitable for real-world deployment where both accurate churn detection and cost-efficiency matter. While Logistic Regression achieved slightly higher recall, it did so at the cost of precision. Random Forest underperformed in both metrics.
 
-Next steps will focus on optimizing XGBoost via threshold tuning to improve precision without retraining, followed by optional feature engineering or alternate imbalance strategies like scale_pos_weight. All models were tracked using MLflow and versioned with DVC for full reproducibility.
+Next steps will focus on optimizing XGBoost via **threshold tuning**, followed by optional **feature engineering** or alternate imbalance strategies like `scale_pos_weight`.
 
-### Model Performance Comparison (With Resampling)
+---
+
+## Model Performance Comparison (With Resampling)
 
 | Model               | Accuracy | Precision | Recall | F1-Score | Notes                                 |
 |---------------------|----------|-----------|--------|----------|---------------------------------------|
@@ -146,9 +125,20 @@ Next steps will focus on optimizing XGBoost via threshold tuning to improve prec
 | Random Forest       | ~0.754   | ~0.534    | ~0.572 | ~0.552   | Lower recall and F1                   |
 | XGBoost             | ~0.737   | **~0.503** | ~0.743 | **~0.602** | Best balance of all metrics        |
 
+---
 
-# More Information
-For more details on EDA and model training, Please take a look at project_roadmap.md
+## Future Enhancements
 
-Built by Clive Dondi, AI/ML Engineer & Software Developer
+- Add real-time inference API (FastAPI or Flask)
+- Streamlined deployment with Docker and CI/CD
+- Integrate dashboard (Grafana, Streamlit, etc.)
+- SHAP values for model explainability
+- Extend to time-series churn prediction
+
+---
+
+## Author
+
+Clive Dondi  
+AI/ML Engineer & Software Developer  
 Contact: clivedondi@hotmail.com
