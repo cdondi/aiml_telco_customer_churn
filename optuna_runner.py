@@ -1,5 +1,6 @@
 import optuna
 import mlflow
+import joblib
 import mlflow.sklearn
 import pandas as pd
 import os
@@ -72,13 +73,14 @@ def objective(trial):
 
     elif model_type == "xgboost":
         # Group all experiments under one project
-        mlflow.set_experiment(f"churn-xgboost-optuna-{append_exp_group}")
+        mlflow.set_experiment(f"churn-xgboost-optuna-thresh-{append_exp_group}")
 
         n_estimators = trial.suggest_categorical("n_estimators", [100, 200, 300])
         max_depth = trial.suggest_categorical("max_depth", [3, 5, 10, 15])
         learning_rate = trial.suggest_float("learning_rate", 0.01, 0.3, log=True)
         subsample = trial.suggest_float("subsample", 0.5, 1.0)
         colsample_bytree = trial.suggest_float("colsample_bytree", 0.5, 1.0)
+        threshold = trial.suggest_float("threshold", 0.3, 0.6)
 
         hyper_params = {
             "n_estimators": n_estimators,
@@ -89,6 +91,8 @@ def objective(trial):
             "objective": "binary:logistic",
             "use_label_encoder": False,
             "eval_metric": "logloss",
+            "threshold": threshold,
+            "early_stopping_rounds": 10,
             "random_state": 42,
         }
 
@@ -97,10 +101,13 @@ def objective(trial):
 
         model = XGBClassifier(**hyper_params)
 
+        mlflow.set_tag("experiment_stage", "threshold_tuning")
+
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
     mlflow.log_param("model_type", model_type)
+    mlflow.log_param("threshold", threshold)
     model_output_path, metrics_output_path = get_output_paths(model_type, trial.number, use_resampling)
 
     if mlflow.active_run():
@@ -118,7 +125,7 @@ def objective(trial):
             mlflow.log_param(k, v)
 
         # Train model and evaluate
-        model, metrics, X_test = train_model(
+        model, metrics, X_test, X_val, y_val = train_model(
             input_path="data/telco_cleaned_7k.csv",
             model_output_path=model_output_path,
             metrics_output_path=metrics_output_path,
@@ -129,6 +136,17 @@ def objective(trial):
         # Log metrics
         for k, v in metrics.items():
             mlflow.log_metric(k, v)
+
+        global best_f1_score
+        if "best_f1_score" not in globals():
+            best_f1_score = -1
+
+        if metrics["f1_score"] > best_f1_score:
+            best_f1_score = metrics["f1_score"]
+            # Save model and validation data for threshold sweep
+            joblib.dump(model, "models/resampled/best_xgboost_model.pkl")
+            X_val.to_csv("data/xgb_best_x_val.csv", index=False)
+            y_val.to_csv("data/xgb_best_y_val.csv", index=False)
 
         # Log model with input example and signature
         input_example = X_test.iloc[:1]

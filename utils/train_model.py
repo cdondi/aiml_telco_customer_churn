@@ -34,7 +34,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def train_model(input_path, model_output_path, metrics_output_path, hyper_params, model_type="logistic", use_resampling=False):
+def train_model(input_path, model_output_path, metrics_output_path, hyper_params, model_type="xgboost", use_resampling=False, threshold=0.5):
     # Load the preprocessed dataset
     df = pd.read_csv(input_path)
 
@@ -59,22 +59,38 @@ def train_model(input_path, model_output_path, metrics_output_path, hyper_params
     # Train a simple Logistic Regression model
     if model_type == "logistic":
         model = LogisticRegression(**hyper_params)
+        model.fit(X_train, y_train)
+        # Predict on the test set
+        y_pred = model.predict(X_test)
     elif model_type == "random_forest":
         model = RandomForestClassifier(**hyper_params)
+        model.fit(X_train, y_train)
+        # Predict on the test set
+        y_pred = model.predict(X_test)
     elif model_type == "xgboost":
         # Compute class imbalance for XGBoost
         counter = Counter(y)
         neg, pos = counter[0], counter[1]
         hyper_params["scale_pos_weight"] = neg / pos
 
+        # Split into train and validation sets for early stopping
+        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+
+        # Fit with early stopping
         model = XGBClassifier(**hyper_params)
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+
+        # Save validation data for threshold tuning
+        X_val.to_csv("data/xgb_best_x_val.csv", index=False)
+        pd.DataFrame(y_val).to_csv("data/xgb_best_y_val.csv", index=False)
+
+        # Predict probabilities instead of labels
+        y_probs = model.predict_proba(X_val)[:, 1]  # Probability of class "1" (churn)
+
+        # Apply custom threshold
+        y_pred = (y_probs >= threshold).astype(int)
     else:
         raise ValueError(f"Unsupported model_type: {model_type}")
-
-    model.fit(X_train, y_train)
-
-    # Predict on the test set
-    y_pred = model.predict(X_test)
 
     # Evaluate
     accuracy = accuracy_score(y_test, y_pred)
@@ -85,13 +101,8 @@ def train_model(input_path, model_output_path, metrics_output_path, hyper_params
     # Save model
     joblib.dump(model, model_output_path)
 
-    # Save metrics
-    metrics = {
-        "accuracy": accuracy,
-        "precision": precision,
-        "recall": recall,
-        "f1_score": f1,
-    }
+    # Save metrics. hyper_params is required for threshold sweep later
+    metrics = {"accuracy": accuracy, "precision": precision, "recall": recall, "f1_score": f1}
 
     # Save metrics
     with open(metrics_output_path, "w") as f:
@@ -100,7 +111,7 @@ def train_model(input_path, model_output_path, metrics_output_path, hyper_params
     logger.info("Model saved to %s", model_output_path)
     logger.info("Metrics saved to %s", metrics_output_path)
 
-    return model, metrics, X_test
+    return model, metrics, X_test, X_val, y_val
 
 
 if __name__ == "__main__":

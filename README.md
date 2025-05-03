@@ -109,6 +109,34 @@ Primary focus is on **recall** and **F1-score** due to class imbalance and busin
 
 ---
 
+## Current Pipeline Design Summary
+
+- **train_model.py**
+  - Core logic: load data, train, evaluate, and return model + metrics
+- **optuna_runner.py**
+  - Automates hyperparameter sweeps using Optuna
+  - Logs experiments with MLflow
+- **threshold_sweep_runner.py**
+  - Runs post-hoc threshold optimization to improve precision/recall balance
+- **MLflow + DVC**
+  - Full reproducibility and traceability of experiments
+
+---
+
+## Model Saving & Loading
+
+```python
+import joblib
+
+# Save
+joblib.dump(model, 'models/model_optuna_xgboost_<trial>.pkl')
+
+# Load
+model = joblib.load('models/model_optuna_xgboost_<trial>.pkl')
+```
+
+---
+
 ## Model Selection Rationale
 
 After evaluating three algorithms — Logistic Regression, Random Forest, and XGBoost — across precision, recall, and F1-score (with class imbalance addressed via resampling), **XGBoost emerged as the preferred model**. It demonstrated the best balance of precision (~0.50), recall (~0.74), and F1-score (~0.60), making it more suitable for real-world deployment where both accurate churn detection and cost-efficiency matter. While Logistic Regression achieved slightly higher recall, it did so at the cost of precision. Random Forest underperformed in both metrics.
@@ -119,12 +147,31 @@ Next steps will focus on optimizing XGBoost via **threshold tuning**, followed b
 
 ## Model Performance Comparison (With Resampling)
 
-| Model               | Accuracy | Precision | Recall | F1-Score | Notes                                 |
-|---------------------|----------|-----------|--------|----------|---------------------------------------|
-| Logistic Regression | ~0.725   | ~0.489    | **~0.789** | **~0.604** | Highest recall, lower precision |
-| Random Forest       | ~0.754   | ~0.534    | ~0.572 | ~0.552   | Lower recall and F1                   |
-| XGBoost             | ~0.737   | **~0.503** | ~0.743 | **~0.602** | Best balance of all metrics        |
+| Model               | Accuracy | Precision  | Recall     | F1-Score   | Notes                             |
+|---------------------|----------|------------|------------|------------|-----------------------------------|
+| Logistic Regression | ~0.725   | ~0.489     | **~0.789** | **~0.604** | Highest recall, lower precision   |
+| Random Forest       | ~0.754   | ~0.534     | ~0.572     | ~0.552     | Lower recall and F1               |
+| XGBoost             | ~0.737   | **~0.503** | ~0.743     | **~0.602** | Best balance of all metrics       |
 
+
+
+| Model               | Accuracy | Precision  | Recall     | F1-Score   | Notes                              |
+|---------------------|----------|------------|------------|------------|------------------------------------|
+| Logistic Regression | ~0.725   | ~0.489     | **~0.789** | ~0.604     | High recall, lower precision       |
+| Random Forest       | ~0.754   | ~0.534     | ~0.572     | ~0.552     | Weaker on recall and F1            |
+| XGBoost (tuned)     | ~0.743   | **0.534** |  ~0.714     | **0.611**  | Best balance after threshold tuning|
+
+---
+
+## Deployment Readiness
+
+XGBoost with resampling and tuned threshold offers the best compromise between detecting churn and minimizing false positives. 
+Threshold tuning improved precision from 0.503 to 0.534 with a small drop in recall.
+
+**Files to deploy:**
+- `models/resampled/best_xgboost_model.pkl`
+- `data/xgb_best_x_test.csv`
+- `data/xgb_best_y_test.csv`
 ---
 
 ## Future Enhancements
