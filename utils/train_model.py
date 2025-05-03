@@ -116,55 +116,137 @@ def train_model(input_path, model_output_path, metrics_output_path, hyper_params
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a churn prediction model")
-    parser.add_argument("--input", required=True, help="Path to input cleaned CSV")
-    parser.add_argument("--model_output", required=True, help="Path to save trained model")
-    # fmt: off
-    parser.add_argument("--metrics_output", required=True, help="Path to save evaluation metrics JSON")
-    # fmt: on
-    parser.add_argument("--max_iter", type=int, default=1000)
-    parser.add_argument("--penalty", type=str, default="l2")
+    parser.add_argument("--final_model", action="store_true", help="Train and save the final selected model")
+    # parser.add_argument("--input", required=True, help="Path to input cleaned CSV")
+    # parser.add_argument("--model_output", required=True, help="Path to save trained model")
+    # # fmt: off
+    # parser.add_argument("--metrics_output", required=True, help="Path to save evaluation metrics JSON")
+    # # fmt: on
+    # parser.add_argument("--max_iter", type=int, default=1000)
+    # parser.add_argument("--penalty", type=str, default="l2")
 
     args = parser.parse_args()
 
-    # Convert string "None" to actual None
-    penalty = None if args.penalty.lower() == "none" else args.penalty
+    if args.final_model:
+        from xgboost import XGBClassifier
+        import joblib
+        import pandas as pd
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+        import mlflow
 
-    hyper_params = {
-        "max_iter": args.max_iter,
-        "penalty": penalty,
-        "solver": "lbfgs",  # You can expand later
-        "class_weight": "balanced",
-    }
+        # Load full training dataset
+        df = pd.read_csv("data/telco_cleaned_7k.csv")
 
-    # Group all experiments under one project
-    mlflow.set_experiment("telco-customer-churn")
+        # Split and prepare data
+        X = df.select_dtypes(include=["number"])
 
-    # # Start MLflow run
-    # mlflow.start_run()
+        # Drop customerID if it is numeric and included
+        if "customerID" in X.columns:
+            X = X.drop(columns=["customerID"])
 
-    try:
-        # Log parameters
-        for k, v in hyper_params.items():
-            mlflow.log_param(k, v)
+        # Python cannot represent missing integer values
+        X = X.astype({col: "float64" for col in X.select_dtypes(include=["int"]).columns})
 
-        # Train the model
-        model, metrics, X_test = train_model(args.input, args.model_output, args.metrics_output, hyper_params)
+        y = df["Churn"].map({"Yes": 1, "No": 0})
 
-        # Log metrics
-        for k, v in metrics.items():
-            mlflow.log_metric(k, v)
+        # Best hyperparameters (from Optuna + threshold sweep)
+        best_params = {
+            "n_estimators": 300,
+            "max_depth": 5,
+            "learning_rate": 0.035,
+            "subsample": 0.794,
+            "colsample_bytree": 0.998,
+            "objective": "binary:logistic",
+            "use_label_encoder": False,
+            "eval_metric": "logloss",
+            "random_state": 42,
+            "early_stopping_rounds": 10,
+        }
 
-        # Log model with input_example and inferred signature
-        input_example = X_test.iloc[:1]
-        signature = mlflow.models.infer_signature(X_test, model.predict(X_test))
+        # Compute class imbalance for XGBoost
+        counter = Counter(y)
+        neg, pos = counter[0], counter[1]
+        best_params["scale_pos_weight"] = neg / pos
 
-        # Log model
-        mlflow.sklearn.log_model(model, artifact_path="model", input_example=input_example, signature=signature)
+        # Stratified split to maintain class balance
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
 
-        mlflow.set_tag("status", "success")
-    except Exception as e:
-        mlflow.set_tag("status", "failed")
-        mlflow.log_param("error_message", str(e))
-        raise
-    finally:
-        mlflow.end_run()
+        threshold = 0.56  # Best threshold from sweep
+
+        # Set up MLflow
+        mlflow.set_tracking_uri("http://localhost:5000")
+        mlflow.set_experiment("xgboost-final-model")
+
+        with mlflow.start_run():
+            # Log parameters
+            for k, v in best_params.items():
+                if k != "early_stopping_rounds":  # Not accepted by log_param
+                    mlflow.log_param(k, v)
+            mlflow.log_param("threshold", threshold)
+
+            # Train model
+            model = XGBClassifier(**best_params)
+            model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+
+            # Evaluate
+            y_probs = model.predict_proba(X_test)[:, 1]
+            y_pred = (y_probs >= threshold).astype(int)
+
+            acc = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
+
+            mlflow.log_metrics({"accuracy": acc, "precision": precision, "recall": recall, "f1_score": f1})
+
+            # Log model with input_example and inferred signature
+            input_example = X_test.iloc[:1]
+            signature = mlflow.models.infer_signature(X_test, model.predict(X_test))
+
+            # Save model
+            joblib.dump(model, "models/final_xgboost_model.pkl")
+            mlflow.sklearn.log_model(model, artifact_path="model", input_example=input_example, signature=signature)
+
+            print("✅ Final model saved and logged to MLflow.")
+
+    else:
+        # Convert string "None" to actual None
+        penalty = None if args.penalty.lower() == "none" else args.penalty
+
+        hyper_params = {
+            "max_iter": args.max_iter,
+            "penalty": penalty,
+            "solver": "lbfgs",  # You can expand later
+            "class_weight": "balanced",
+        }
+
+        # Group all experiments under one project
+        mlflow.set_experiment("telco-customer-churn")
+
+        try:
+            # Log parameters
+            for k, v in hyper_params.items():
+                mlflow.log_param(k, v)
+
+            # Train the model
+            model, metrics, X_test = train_model(args.input, args.model_output, args.metrics_output, hyper_params)
+
+            # Log metrics
+            for k, v in metrics.items():
+                mlflow.log_metric(k, v)
+
+            # Log model with input_example and inferred signature
+            input_example = X_test.iloc[:1]
+            signature = mlflow.models.infer_signature(X_test, model.predict(X_test))
+
+            # Log model
+            mlflow.sklearn.log_model(model, artifact_path="model", input_example=input_example, signature=signature)
+
+            mlflow.set_tag("status", "success")
+        except Exception as e:
+            mlflow.set_tag("status", "failed")
+            mlflow.log_param("error_message", str(e))
+            raise
+        finally:
+            mlflow.end_run()
