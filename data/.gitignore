@@ -1,3 +1,5 @@
 /telco_cleaned_7k.csv
 /telco_cleaned_1M.csv
 /telco_7k.csv
+/xgb_best_x_test.csv
+/xgb_best_y_test.csv

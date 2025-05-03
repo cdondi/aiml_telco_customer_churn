@@ -172,6 +172,10 @@ if __name__ == "__main__":
         # Stratified split to maintain class balance
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
 
+        # Save test set for model registration and deployment
+        X_test.to_csv("data/xgb_best_x_test.csv", index=False)
+        y_test.to_csv("data/xgb_best_y_test.csv", index=False)
+
         threshold = 0.56  # Best threshold from sweep
 
         # Set up MLflow
