@@ -161,7 +161,105 @@ Next steps will focus on optimizing XGBoost via **threshold tuning**, followed b
 | Random Forest       | ~0.754   | ~0.534     | ~0.572     | ~0.552     | Weaker on recall and F1            |
 | XGBoost (tuned)     | ~0.743   | **0.534** |  ~0.714     | **0.611**  | Best balance after threshold tuning|
 
+
+## Threshold Tuning and Selection
+To improve the precision-recall tradeoff of this XGBoost model, I implemented threshold tuning using the best hyperparameter configuration from Optuna. Instead of relying on the default threshold of 0.50 for classification, I swept thresholds between 0.45 and 0.56 (inclusive) and evaluated model performance on validation data.
+## Sweep Configuration
+	-	Algorithm: XGBoost (with SMOTE resampling)
+	-	Validation data: Held-out from training set
+	-	Threshold range: 0.45 to 0.56
+	-	Step size: 0.01
+	-	Evaluation metrics: Precision, Recall, F1-score (via MLflow)
+
+### Threshold Tuning Results
+| Threshold | Precision | Recall | F1-Score |
+|-----------|-----------|----------|----------|
+| 0.45      | 0.44      | 0.83     | 0.57     |
+| 0.46      | 0.45      | 0.81     | 0.58     |
+| 0.47      | 0.46      | 0.79     | 0.58     |
+| 0.48      | 0.47      | 0.77     | 0.58     |
+| 0.49      | 0.48      | 0.75     | 0.58     |
+| 0.50      | 0.47      | 0.76     | 0.58     |
+| 0.51      | 0.48      | 0.75     | 0.59     |
+| 0.52      | 0.49      | 0.74     | 0.59     |
+| 0.53      | 0.50      | 0.74     | 0.59     |
+| 0.54      | 0.49      | 0.75     | 0.59     |
+| 0.55      | 0.50      | 0.74     | 0.60     |
+| **0.56**  | **0.51**  | **0.73** | **0.60** |
+
+I ended up selecting 0.56 as the best threshold. Why 0.56 ?
+	-	At threshold = 0.56, the model achieved the best F1-score (~0.60) with improved precision (~0.51) and strong recall (~0.73).
+	-	This threshold better aligns with real-world scenarios where false positives (wrongly flagging non-churners) can be costly.
+## Outcome
+  - The selected threshold of 0.56 was hard-coded into the final model serving logic.
+	-	This change ensures that predictions from the deployed model are aligned with the desired business tradeoffs between precision and recall.
+
 ---
+## Model Saving & Loading
+import joblib
+# Save
+joblib.dump(model, 'models/final_xgboost_model.pkl')
+# Load
+model = joblib.load('models/final_xgboost_model.pkl')
+
+
+## Model Serving (Local API)
+To serve the final model locally using MLflow:
+export MLFLOW_TRACKING_URI=http://localhost:5000
+mlflow models serve -m "models:/telco-xgboost-final/1" -p 1234
+
+
+## To send a sample prediction request (ensure your input matches the trained feature set) depending on the use case:
+{
+    "dataframe_records": [
+      {
+        "SeniorCitizen": 0,
+        "tenure": 12,
+        "MonthlyCharges": 75.5,
+        "TotalCharges": 905.5,
+        "InternetService_Fiber optic": 1,
+        "InternetService_No": 0,
+        "OnlineSecurity_Yes": 0,
+        "OnlineBackup_Yes": 1,
+        "DeviceProtection_Yes": 1,
+        "TechSupport_Yes": 0,
+        "StreamingTV_Yes": 1,
+        "StreamingMovies_Yes": 1,
+        "Contract_One year": 0,
+        "Contract_Two year": 1,
+        "PaperlessBilling_Yes": 1,
+        "PaymentMethod_Electronic check": 0,
+        "PaymentMethod_Mailed check": 1,
+        "is_new_customer": 1,
+        "is_loyal_customer": 0,
+        "tenure_monthly_ratio": 0.159,
+        "high_charge_short_tenure": 0
+      }
+    ]
+  }
+
+  OR
+
+  X_input = pd.DataFrame(
+    [
+        {
+            "SeniorCitizen": 0,
+            "tenure": 12,
+            "MonthlyCharges": 75.5,
+            "is_new_customer": 1,
+            "is_loyal_customer": 0,
+            "tenure_monthly_ratio": 0.159,
+            "high_charge_short_tenure": 0,
+        }
+    ]
+)
+
+OR
+
+run python test_api.py 
+OR
+python test_prediction_probability.py
+
 
 ## Deployment Readiness
 
@@ -181,6 +279,10 @@ Threshold tuning improved precision from 0.503 to 0.534 with a small drop in rec
 - Integrate dashboard (Grafana, Streamlit, etc.)
 - SHAP values for model explainability
 - Extend to time-series churn prediction
+- Add a dashboard to adjust and visualize thresholds dynamically.
+  	•	Lower thresholds increase recall but may reduce precision.
+	  •	Higher thresholds increase precision but may reduce recall.
+	  •	In production, this threshold can be tuned to business priorities and costs.
 
 ---
 

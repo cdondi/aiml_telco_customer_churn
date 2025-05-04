@@ -1,0 +1,27 @@
+{
+    "dataframe_records": [
+      {
+        "SeniorCitizen": 0,
+        "tenure": 12,
+        "MonthlyCharges": 75.5,
+        "TotalCharges": 905.5,
+        "InternetService_Fiber optic": 1,
+        "InternetService_No": 0,
+        "OnlineSecurity_Yes": 0,
+        "OnlineBackup_Yes": 1,
+        "DeviceProtection_Yes": 1,
+        "TechSupport_Yes": 0,
+        "StreamingTV_Yes": 1,
+        "StreamingMovies_Yes": 1,
+        "Contract_One year": 0,
+        "Contract_Two year": 1,
+        "PaperlessBilling_Yes": 1,
+        "PaymentMethod_Electronic check": 0,
+        "PaymentMethod_Mailed check": 1,
+        "is_new_customer": 1,
+        "is_loyal_customer": 0,
+        "tenure_monthly_ratio": 0.159,
+        "high_charge_short_tenure": 0
+      }
+    ]
+  }
